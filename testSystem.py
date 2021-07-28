@@ -74,6 +74,28 @@ class TestSystem(unittest.TestCase):
         rv = self._system.runCommand('cd nonexistent')
         self.assertEqual(rv, DIRECTORY_NOT_FOUND)
 
+        # checks multi-faceted paths
+        self._assertNoOutput(self._system.runCommand('cd sub1'))
+        self._assertNoOutput(self._system.runCommand('mkdir sub2'))
+        self._assertNoOutput(self._system.runCommand('cd sub2'))
+        self._assertNoOutput(self._system.runCommand('mkdir sub3'))
+        self._assertNoOutput(self._system.runCommand('mkdir sub4'))
+
+        self._assertNoOutput(self._system.runCommand('cd -mf ../..'))
+        
+        rv = self._system.runCommand('pwd')
+        self.assertEqual(rv, '/root')
+        self._assertNoOutput(self._system.runCommand('mkdir sub3'))
+
+        self._assertNoOutput(self._system.runCommand('cd -mf sub1/sub2/sub3/../sub4'))
+        
+        rv = self._system.runCommand('pwd')
+        self.assertEqual(rv, '/root/sub1/sub2/sub4')
+
+        # checks trailing slashes
+        self._assertNoOutput(self._system.runCommand('cd -mf ../..//'))
+        rv = self._system.runCommand('pwd')
+        self.assertEqual(rv, '/root/sub1')
 
     def testTouch(self):
         # checks invalid command
@@ -201,6 +223,10 @@ sub2-file2
 sub4-file1
 sub4-file2
 sub4-file3""")
+
+        # checks nonexistent directory
+        rv = self._system.runCommand('ls -mf sub1/nonexistent/sub3 -r')
+        self.assertEqual(rv, DIRECTORY_NOT_FOUND)
 
     def testQuit(self):
         # checks invalid command

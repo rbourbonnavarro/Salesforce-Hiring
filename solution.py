@@ -82,7 +82,7 @@ class LsCommand(Command):
             if len(args) != 1:
                 raise InvalidArguments
                 
-            path = args.pop(0)
+            path = args.pop(0).rstrip('/')
 
         if len(args) > 0:
             raise InvalidArguments
@@ -105,7 +105,7 @@ class LsCommand(Command):
 
         cwd = self._system.getCWD()
         if multi_faceted_path:
-            dirs = path.rstrip('/').split('/')
+            dirs = path.split('/')
             for dir in dirs:
                 if dir in cwd.contents and cwd.contents[dir].type == DIRECTORY_TYPE:
                     cwd = cwd.contents[dir]
@@ -144,24 +144,46 @@ class MkdirCommand(Command):
 
 
 class CdCommand(Command):
-    def run(self, args):
+    def _validate_args(self, args):
+        path = ''
+        multi_faceted_path = False
+
+        if MULTI_FACETED_PATH_OPTION in args:
+            multi_faceted_path = True
+            args.pop(args.index(MULTI_FACETED_PATH_OPTION))
+            
         if len(args) != 1:
             raise InvalidArguments
-        
-        name = args[0]
-        if len(name) > 100:
-            raise InvalidArguments
+            
+        path = args.pop(0).rstrip('/')
 
-        if name == '..':
-            self._system.changeDir(name)
-        else:
-            items = self._system.getCWD().contents
-            if name in items:
-                if items[name].type != DIRECTORY_TYPE:
-                    return DIRECTORY_NOT_FOUND
-                else:
-                    self._system.changeDir(name)
+        return multi_faceted_path, path
+
+    def run(self, args):
+        multi_faceted_path, path = self._validate_args(args)
+
+        def _change_dir(dir):
+            if dir == '..':
+                self._system.changeDir(dir)
             else:
+                items = self._system.getCWD().contents
+                if dir in items:
+                    if items[dir].type != DIRECTORY_TYPE:
+                        return False
+                    else:
+                        self._system.changeDir(dir)
+                else:
+                    return False
+
+            return True
+
+        if multi_faceted_path:
+            dirs = path.split('/')
+            for dir in dirs:
+                if not _change_dir(dir):
+                    return DIRECTORY_NOT_FOUND
+        else:
+            if not _change_dir(path):
                 return DIRECTORY_NOT_FOUND
 
         return ''
