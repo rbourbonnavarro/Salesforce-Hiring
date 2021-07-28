@@ -28,7 +28,10 @@ class InvalidArguments(Exception):
     pass
 
 
-class Command(ABC):
+
+MULTI_FACETED_PATH_OPTION = '-mf'
+
+class Command(ABC):    
     def __init__(self, system) -> None:
         self._system = system
 
@@ -63,26 +66,52 @@ class PwdCommand(Command):
 class LsCommand(Command):
     RECURSIVE_OPTION = '-r'
     
-    def run(self, args):
-        if len(args) > 1:
+    def _validate_args(self, args):
+        recursive = False
+        path = ''
+        multi_faceted_path = False
+
+        if self.RECURSIVE_OPTION in args:
+            recursive = True
+            args.pop(args.index(self.RECURSIVE_OPTION))
+
+        if MULTI_FACETED_PATH_OPTION in args:
+            multi_faceted_path = True
+            args.pop(args.index(MULTI_FACETED_PATH_OPTION))
+            
+            if len(args) != 1:
+                raise InvalidArguments
+                
+            path = args.pop(0)
+
+        if len(args) > 0:
             raise InvalidArguments
+
+        return recursive, multi_faceted_path, path
+
+    def run(self, args):
+        recursive, multi_faceted_path, path = self._validate_args(args)
             
         def _visit(result, full_path, entry):
             result.append(PATH_SEPARATOR + PATH_SEPARATOR.join(full_path))
+            dirs = []
             for item_name, item_entry in entry.contents.items():
                 if item_entry.type == DIRECTORY_TYPE:
-                    _visit(result, full_path + [item_name], item_entry)
+                    dirs.append(item_entry)
                 else:
                     result.append(item_name)
-
-        recursive = False
-        if len(args) == 1:
-            if args[0] != self.RECURSIVE_OPTION:
-                raise InvalidArguments
-            else:
-                recursive = True
+            for dir in dirs:
+                _visit(result, full_path + [dir.name], dir)
 
         cwd = self._system.getCWD()
+        if multi_faceted_path:
+            dirs = path.rstrip('/').split('/')
+            for dir in dirs:
+                if dir in cwd.contents and cwd.contents[dir].type == DIRECTORY_TYPE:
+                    cwd = cwd.contents[dir]
+                else:
+                    return DIRECTORY_NOT_FOUND
+            
         result = []
         if recursive:
             full_path = [cwd.name]

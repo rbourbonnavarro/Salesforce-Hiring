@@ -139,14 +139,16 @@ sub1""")
         rv = self._system.runCommand('ls -r 1')
         self.assertEqual(rv, INVALID_COMMAND)
 
-        # builds a directory structure to test recursive option 
+        # builds a directory structure to test recursive option
         self._assertNoOutput(self._system.runCommand('cd sub1'))
         self._assertNoOutput(self._system.runCommand('touch sub1-file'))
         self._assertNoOutput(self._system.runCommand('mkdir sub2'))
         self._assertNoOutput(self._system.runCommand('cd sub2'))
         self._assertNoOutput(self._system.runCommand('touch sub2-file1'))
-        self._assertNoOutput(self._system.runCommand('touch sub2-file2'))
         self._assertNoOutput(self._system.runCommand('mkdir sub3'))
+        # creating file after directory to check files are always printed before directories
+        # and their contents when using recursive option
+        self._assertNoOutput(self._system.runCommand('touch sub2-file2'))
         self._assertNoOutput(self._system.runCommand('cd sub3'))
         self._assertNoOutput(self._system.runCommand('mkdir sub4'))
         self._assertNoOutput(self._system.runCommand('cd sub4'))
@@ -168,6 +170,34 @@ sub2-file1
 sub2-file2
 /root/sub1/sub2/sub3
 /root/sub1/sub2/sub3/sub4
+sub4-file1
+sub4-file2
+sub4-file3""")
+
+        
+        # checks multi-faceted paths
+        rv = self._system.runCommand('ls -mf sub1')
+        self.assertEqual(rv, """sub1-file
+sub2""")
+
+        # checks trailing slashes
+        rv = self._system.runCommand('ls -mf sub1//')
+        self.assertEqual(rv, """sub1-file
+sub2""")
+
+        # checks nested directories
+        rv = self._system.runCommand('ls -mf sub1/sub2')
+        self.assertEqual(rv, """sub2-file1
+sub3
+sub2-file2""")
+
+        # checks recursive option
+        rv = self._system.runCommand('ls -mf sub1/sub2 -r')
+        self.assertEqual(rv, """/sub2
+sub2-file1
+sub2-file2
+/sub2/sub3
+/sub2/sub3/sub4
 sub4-file1
 sub4-file2
 sub4-file3""")
