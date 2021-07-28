@@ -160,7 +160,7 @@ class System(object):
         }
 
     def runCommand(self, commandLine):
-        args = commandLine.split(' ')
+        args = commandLine.strip().split(' ')
         command = args.pop(0)
 
         if command not in self._commands:
