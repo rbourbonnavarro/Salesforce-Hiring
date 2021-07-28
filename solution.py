@@ -16,6 +16,10 @@ UNRECOGNIZED_COMMAND = 'Unrecognized command'
 INVALID_FILE_OR_FOLDER_NAME = 'Invalid File or Folder Name'
 DIRECTORY_NOT_FOUND = 'Directory not found'
 DIRECTORY_ALREADY_EXISTS = 'Directory already exists'
+FILE_ALREADY_EXISTS = 'File already exists'
+
+# Exit message
+QUIT_MESSAGE = 'quit'
 
 Entry = namedtuple('Entry', ['name', 'contents', 'type', 'parent'])
 
@@ -38,7 +42,7 @@ class QuitCommand(Command):
         if len(args) > 0:
             raise InvalidArguments
 
-        return 'quit'
+        return QUIT_MESSAGE
 
 
 class PwdCommand(Command):
@@ -88,6 +92,7 @@ class LsCommand(Command):
 
         return '\n'.join(result)
 
+
 class MkdirCommand(Command):
     def run(self, args):
         if len(args) != 1:
@@ -99,7 +104,10 @@ class MkdirCommand(Command):
 
         items = self._system.getCWD().contents
         if name in items:
-            return DIRECTORY_ALREADY_EXISTS
+            if items[name].type == DIRECTORY_TYPE:
+                return DIRECTORY_ALREADY_EXISTS
+            else:
+                return FILE_ALREADY_EXISTS
             
         self._system.createDir(name)
 
@@ -194,7 +202,7 @@ if __name__ == '__main__':
             if not ri:
                 continue
             result = system.runCommand(ri)
-            if result == 'quit':
+            if result == QUIT_MESSAGE:
                 break
             if result != '':
                 print(result)
