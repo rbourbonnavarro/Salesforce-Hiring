@@ -55,6 +55,7 @@ class TestSystem(unittest.TestCase):
         rv = self._system.runCommand('cd 1 2')
         self.assertEqual(rv, INVALID_COMMAND)
 
+        # checks changing to a subdirectory and back to parent
         self._assertNoOutput(self._system.runCommand('mkdir sub1'))
         self._assertNoOutput(self._system.runCommand('cd sub1'))
         rv = self._system.runCommand('pwd')
@@ -63,7 +64,13 @@ class TestSystem(unittest.TestCase):
         self._assertNoOutput(self._system.runCommand('cd ..'))
         rv = self._system.runCommand('pwd')
         self.assertEqual(rv, '/root')
+        
+        # tests going to parent in root directory stays there
+        self._assertNoOutput(self._system.runCommand('cd ..'))
+        rv = self._system.runCommand('pwd')
+        self.assertEqual(rv, '/root')
 
+        # checks nonexistent directory
         rv = self._system.runCommand('cd nonexistent')
         self.assertEqual(rv, DIRECTORY_NOT_FOUND)
 

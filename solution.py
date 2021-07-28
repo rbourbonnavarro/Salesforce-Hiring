@@ -187,7 +187,8 @@ class System(object):
 
     def changeDir(self, name):
         if name == '..':
-            self._cwd = self._cwd.parent
+            if self._cwd.parent is not None:
+                self._cwd = self._cwd.parent
         else:
             self._cwd = self._cwd.contents[name]
 
