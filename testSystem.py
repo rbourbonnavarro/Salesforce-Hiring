@@ -97,6 +97,10 @@ class TestSystem(unittest.TestCase):
         rv = self._system.runCommand('pwd')
         self.assertEqual(rv, '/root/sub1')
 
+        # checks nonexistent directory
+        rv = self._system.runCommand('cd -mf sub2/nonexistent')
+        self.assertEqual(rv, DIRECTORY_NOT_FOUND)
+
     def testTouch(self):
         # checks invalid command
         rv = self._system.runCommand('touch 1 2')
