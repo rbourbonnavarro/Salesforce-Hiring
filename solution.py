@@ -1,4 +1,6 @@
 import sys
+import json
+
 from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 
@@ -17,6 +19,7 @@ INVALID_FILE_OR_FOLDER_NAME = 'Invalid File or Folder Name'
 DIRECTORY_NOT_FOUND = 'Directory not found'
 DIRECTORY_ALREADY_EXISTS = 'Directory already exists'
 FILE_ALREADY_EXISTS = 'File already exists'
+INVALID_PATH = 'Invalid path'
 
 # Exit message
 QUIT_MESSAGE = 'quit'
@@ -44,6 +47,8 @@ class QuitCommand(Command):
     def run(self, args):
         if len(args) > 0:
             raise InvalidArguments
+
+        self._system.save()
 
         return QUIT_MESSAGE
 
@@ -181,7 +186,7 @@ class CdCommand(Command):
             dirs = path.split('/')
             for dir in dirs:
                 if not _change_dir(dir):
-                    return DIRECTORY_NOT_FOUND
+                    return INVALID_PATH
         else:
             if not _change_dir(path):
                 return DIRECTORY_NOT_FOUND
@@ -206,9 +211,21 @@ class TouchCommand(Command):
 
 
 class System(object):
-    def __init__(self, ) -> None:
-        self._root = Entry('root', {}, DIRECTORY_TYPE, None)
+    ROOT_DIRECTORY_NAME = 'root'
+    
+    def __init__(self, state_file_name=None) -> None:
+        self._state_file_name = state_file_name
+
+        empty_root = Entry(self.ROOT_DIRECTORY_NAME, {}, DIRECTORY_TYPE, None)
+        if self._state_file_name is not None:
+            if not self.load():
+                # if loading the state fails for any reason, the system starts empty
+                self._root = empty_root
+        else:
+            self._root = empty_root
+
         self._cwd = self._root
+            
         self._commands = {
             'quit': QuitCommand(self),
             'pwd': PwdCommand(self),
@@ -246,9 +263,100 @@ class System(object):
     def createFile(self, name):
         self._cwd.contents[name] = Entry(name, '', FILE_TYPE, self._cwd)
 
+    def getFullPath(self, entry):
+        if entry.parent is not None:
+            return self.getFullPath(entry.parent) + '/' + entry.name
+        else:
+            return entry.name
+
+    def load(self):
+        with open(self._state_file_name, 'r') as f:
+            try:
+                # loads the state from the file
+                state = json.load(f)
+                # gets the root directory strucure
+                root = state[self.ROOT_DIRECTORY_NAME]
+
+                def _load_dir_entry(state, full_path, dir_entry_name, slzed_entry, parent):
+                    """Recursively loads the directory structure entries."""
+                    
+                    entry = Entry(dir_entry_name, {}, 'd', parent)
+
+                    for file_name in slzed_entry['files']:
+                        entry.contents[file_name] = Entry(file_name, '', FILE_TYPE, entry)
+                    for dir_name in slzed_entry['dirs']:
+                        full_path_new = full_path + '/' + dir_name
+                        entry.contents[dir_name] = _load_dir_entry(state, full_path_new, dir_name, state[full_path_new], entry)
+
+                    return entry
+                        
+                # creates the whole directory structure and gets the root entry
+                self._root = _load_dir_entry(state, self.ROOT_DIRECTORY_NAME, self.ROOT_DIRECTORY_NAME, root, None)
+
+                return True
+            except Exception:
+                return False
+
+    def save(self):
+        """Serializes the directory structure in JSON format and saves it to disk.
+        Format is as follows:
+        {
+            "<root_dir>": {
+                "dirs": [<sub_dir_1>, <sub_dir_2>, ...],
+                "files": [<dir_file_1>, <dir_file_2>, ...]
+            },
+            "<root_dir>/<sub_dir_1>": {
+                "dirs" [...],
+                "files" [...]
+            },
+            ...
+        }
+
+        Every directory is represented by an entry in a JSON object with its full path as the key,
+        and a JSON object containing its sub-directory names and file names as the value.
+        The root directory is always present.
+        """
+        
+        def _save_entry(file, entry):
+            """Recursively serializes the directory structure entries."""
+
+            if entry.type == DIRECTORY_TYPE:
+                path = self.getFullPath(entry)
+
+                file.write(f'"{path}":')
+
+                slzed_entry = {
+                    'dirs': [],
+                    'files': []
+                }
+
+                dirs = []
+                for entry_name, entry_contents in entry.contents.items():
+                    if entry_contents.type == DIRECTORY_TYPE:
+                        dirs.append(entry_contents)
+                        slzed_entry['dirs'].append(entry_name)
+                    else:
+                        slzed_entry['files'].append(entry_name)
+
+                json.dump(slzed_entry, file)
+
+                for dir in dirs:
+                    file.write(',')
+                    _save_entry(file, dir)
+
+        # don't save state if no file name was given
+        if self._state_file_name is None:
+            return
+
+        with open(self._state_file_name, 'w') as f:
+            # serialization is streamed
+            f.write('{')
+            _save_entry(f, self._root)
+            f.write('}')
+
 
 if __name__ == '__main__':
-    system = System()
+    system = System(state_file_name='state.json')
     while True:
             ri = input()
             if not ri:

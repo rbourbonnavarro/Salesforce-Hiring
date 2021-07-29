@@ -1,6 +1,6 @@
 import unittest
 
-from solution import System, INVALID_COMMAND, UNRECOGNIZED_COMMAND, DIRECTORY_NOT_FOUND, INVALID_FILE_OR_FOLDER_NAME, QUIT_MESSAGE, DIRECTORY_ALREADY_EXISTS, FILE_ALREADY_EXISTS
+from solution import System, INVALID_COMMAND, UNRECOGNIZED_COMMAND, DIRECTORY_NOT_FOUND, INVALID_FILE_OR_FOLDER_NAME, QUIT_MESSAGE, DIRECTORY_ALREADY_EXISTS, FILE_ALREADY_EXISTS, INVALID_PATH
 
 
 class TestSystem(unittest.TestCase):
@@ -16,7 +16,6 @@ class TestSystem(unittest.TestCase):
         rv = self._system.runCommand('nonexistent')
         self.assertEqual(rv, UNRECOGNIZED_COMMAND)
 
-    
     def testExtraWhitespacesNotRejected(self):
         # checks leading whitespaces
         rv = self._system.runCommand('  pwd')
@@ -99,7 +98,7 @@ class TestSystem(unittest.TestCase):
 
         # checks nonexistent directory
         rv = self._system.runCommand('cd -mf sub2/nonexistent')
-        self.assertEqual(rv, DIRECTORY_NOT_FOUND)
+        self.assertEqual(rv, INVALID_PATH)
 
     def testTouch(self):
         # checks invalid command
@@ -240,6 +239,126 @@ sub4-file3""")
         # checks invalid command
         rv = self._system.runCommand('quit')
         self.assertEqual(rv, QUIT_MESSAGE)
+
+
+class TestSystemStartup(unittest.TestCase):
+
+    _state_file_name = 'state.json'
+
+    def _checkEmptySystem(self, system):
+        # checks start directory is "root"
+        rv = system.runCommand('pwd')
+        self.assertEqual(rv, '/root')
+
+        # checks start directory is empty
+        rv = system.runCommand('ls')
+        self.assertEqual(rv, '')
+
+    def testNoFile(self):
+        system = System()
+        self._checkEmptySystem(system)
+
+    def _writeFile(self, contents):
+        import json
+
+        with open(self._state_file_name, 'w') as f:
+            json.dump(contents, f)
+
+    def testInvalidFileContents(self):
+        # no root directory
+        contents = {}
+        self._writeFile(contents)
+
+        system = System(self._state_file_name)
+        self._checkEmptySystem(system)
+
+        # invalid format
+        contents = []
+        self._writeFile(contents)
+
+        system = System(self._state_file_name)
+        self._checkEmptySystem(system)
+
+        # invalid directory structure
+        contents = {
+            'root': {
+                'dirs': ['dir'],
+                'files': ['file']
+            }
+        }
+        self._writeFile(contents)
+
+        system = System(self._state_file_name)
+        self._checkEmptySystem(system)
+
+    def testEmptyDirectoryAndFile(self):
+        contents = {
+            'root': {
+                'dirs': ['dir'],
+                'files': ['file']
+            },
+            'root/dir': {
+                'dirs': [],
+                'files': []
+            },
+        }
+        self._writeFile(contents)
+
+        system = System(self._state_file_name)
+
+        rv = system.runCommand('ls -r')
+        self.assertEqual(rv, """/root
+file
+/root/dir""")
+
+    def testNestedDirectories(self):
+        contents = {
+            'root': {
+                'dirs': ['sub1'],
+                'files': ['root-file']
+            },
+            'root/sub1': {
+                'dirs': ['sub2', 'sub3'],
+                'files': ['sub1-file']
+            },
+            'root/sub1/sub2': {
+                'dirs': ['sub4'],
+                'files': ['sub2-file1', 'sub2-file2']
+            },
+            'root/sub1/sub3': {
+                'dirs': [],
+                'files': ['sub3-file']
+            },
+            'root/sub1/sub2/sub4': {
+                'dirs': ['sub5'],
+                'files': []
+            },
+            'root/sub1/sub2/sub4/sub5': {
+                'dirs': [],
+                'files': ['sub5-file1', 'sub5-file2', 'sub5-file3']
+            },
+        }
+        self._writeFile(contents)
+
+        system = System(self._state_file_name)
+
+        rv = system.runCommand('ls -r')
+        self.assertEqual(rv, """/root
+root-file
+/root/sub1
+sub1-file
+/root/sub1/sub2
+sub2-file1
+sub2-file2
+/root/sub1/sub2/sub4
+/root/sub1/sub2/sub4/sub5
+sub5-file1
+sub5-file2
+sub5-file3
+/root/sub1/sub3
+sub3-file""")
+
+
 
 
 if __name__ == '__main__':
