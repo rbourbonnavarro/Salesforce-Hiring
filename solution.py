@@ -270,8 +270,8 @@ class System(object):
             return entry.name
 
     def load(self):
-        with open(self._state_file_name, 'r') as f:
-            try:
+        try:
+            with open(self._state_file_name, 'r') as f:
                 # loads the state from the file
                 state = json.load(f)
                 # gets the root directory strucure
@@ -293,9 +293,9 @@ class System(object):
                 # creates the whole directory structure and gets the root entry
                 self._root = _load_dir_entry(state, self.ROOT_DIRECTORY_NAME, self.ROOT_DIRECTORY_NAME, root, None)
 
-                return True
-            except Exception:
-                return False
+            return True
+        except Exception:
+            return False
 
     def save(self):
         """Serializes the directory structure in JSON format and saves it to disk.
